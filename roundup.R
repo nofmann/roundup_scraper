@@ -89,20 +89,27 @@ update_history <- function(new) {
 
 # ---- plots ----------------------------------------------------------------
 ELEV_COL <- c("8,550 ft" = "#E69F00", "10,500 ft" = "#0072B2", "11,068 ft" = "#CC79A7")
-INK <- "#222222"; MUTED <- "#6b7280"; GRID <- "#e5e7eb"
+INK <- "#222222"; MUTED <- "#555555"; GRID <- "#d9d9d9"
+CAPTION <- "Source: Alta Hourly Wx Roundup (wxstns.net). Times are hour-ending, Mountain."
 
 theme_roundup <- function() {
-  theme_minimal(base_size = 12) +
+  theme_linedraw(base_size = 12) +
     theme(panel.grid.minor = element_blank(),
-          panel.grid.major = element_line(colour = GRID),
+          panel.grid.major = element_line(colour = GRID, linewidth = 0.3),
+          panel.border = element_rect(colour = INK, fill = NA, linewidth = 0.6),
+          axis.ticks = element_line(colour = INK, linewidth = 0.4),
           plot.title = element_text(face = "bold", colour = INK, size = 13),
-          plot.subtitle = element_text(colour = MUTED),
-          axis.title = element_blank(),
-          axis.text = element_text(colour = MUTED),
+          plot.subtitle = element_text(colour = MUTED, size = 10),
+          plot.caption = element_text(colour = MUTED, size = 8, hjust = 0),
+          plot.title.position = "plot", plot.caption.position = "plot",
+          axis.title.x = element_blank(),
+          axis.title.y = element_text(colour = INK, size = 10),
+          axis.text = element_text(colour = INK, size = 9),
           plot.margin = margin(8, 18, 8, 8),
           legend.position = "top", legend.justification = "left",
           legend.title = element_blank(),
-          strip.text = element_text(face = "bold", hjust = 0, colour = INK))
+          legend.key = element_blank(),
+          strip.text = element_text(face = "bold", hjust = 0))
 }
 
 time_scale <- function(df) {
@@ -129,7 +136,9 @@ plot_temp <- function(df) {
              hjust = 0, size = 3.2, colour = MUTED) +
     geom_line(linewidth = 0.9, na.rm = TRUE) +
     scale_colour_manual(values = ELEV_COL) +
-    time_scale(df) + labs(title = "Temperature (°F), hourly average") +
+    time_scale(df) +
+    labs(title = "Temperature by elevation", subtitle = "Hourly average",
+         y = "Temperature (°F)", caption = CAPTION) +
     theme_roundup()
 }
 
@@ -139,7 +148,9 @@ plot_rh <- function(df) {
     geom_line(linewidth = 0.9, na.rm = TRUE) +
     scale_colour_manual(values = ELEV_COL) +
     scale_y_continuous(limits = c(NA, 100), labels = function(x) paste0(x, "%")) +
-    time_scale(df) + labs(title = "Relative humidity, hourly average") +
+    time_scale(df) +
+    labs(title = "Relative humidity by elevation", subtitle = "Hourly average",
+         y = "Relative humidity", caption = CAPTION) +
     theme_roundup()
 }
 
@@ -151,12 +162,18 @@ plot_precip <- function(df) {
     geom_col(position = position_dodge(width = 2400), width = 2400, na.rm = TRUE) +
     scale_fill_manual(values = c("9,664 ft" = "#0072B2", "8,550 ft" = "#E69F00")) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.08))) +
-    time_scale(df) + labs(title = "Water equivalent, 1-hr (in)") + theme_roundup()
+    time_scale(df) +
+    labs(title = "Precipitation", subtitle = "Hourly water equivalent by gauge elevation",
+         y = "Water equivalent (in)") +
+    theme_roundup()
   p2 <- ggplot(df, aes(datetime, snow12_9664)) +
     geom_area(fill = "#0072B2", alpha = 0.25, na.rm = TRUE) +
     geom_line(colour = "#0072B2", linewidth = 0.9, na.rm = TRUE) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.08))) +
-    time_scale(df) + labs(title = "12-hr snow total (in), 9,664 ft") + theme_roundup()
+    time_scale(df) +
+    labs(title = "Snow", subtitle = "Rolling 12-hour total at 9,664 ft",
+         y = "Snow (in)", caption = CAPTION) +
+    theme_roundup()
   p1 / p2
 }
 
@@ -175,14 +192,15 @@ wind_station <- function(df, suffix, label, col) {
     geom_line(aes(y = spd), colour = col, linewidth = 1, na.rm = TRUE) +
     scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.08))) +
     time_scale(df) +
-    labs(title = paste0(label, ": wind speed and gust (mph)"),
-         subtitle = "Solid = hourly average, band/dotted = max gust") +
-    theme_roundup() + theme(axis.text.x = element_blank())
+    labs(title = paste0("Wind at ", label),
+         subtitle = "Solid line = hourly average, shaded band = max gust",
+         y = "Speed (mph)") +
+    theme_roundup() + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
   bot <- ggplot(d, aes(datetime, dir)) +
-    geom_point(colour = col, size = 1.6, na.rm = TRUE) +
+    geom_point(colour = col, size = 1.8, na.rm = TRUE) +
     scale_y_continuous(limits = c(0, 360), breaks = c(0, 90, 180, 270, 360),
                        labels = c("N", "E", "S", "W", "N")) +
-    time_scale(df) + theme_roundup()
+    time_scale(df) + labs(y = "Direction") + theme_roundup()
   top / bot + plot_layout(heights = c(3, 1.1))
 }
 
@@ -192,7 +210,8 @@ plot_wind <- function(df) {
                  wind_station(df, "baldy", "Mt. Baldy", "#009E73"))
   panels <- Filter(Negate(is.null), panels)
   if (!length(panels)) return(NULL)
-  wrap_plots(panels, ncol = 1)
+  wrap_plots(panels, ncol = 1) +
+    plot_annotation(caption = CAPTION, theme = theme_roundup())
 }
 
 save_plot <- function(p, name, width = 10, height = 4.2) {
