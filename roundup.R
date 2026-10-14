@@ -88,7 +88,8 @@ update_history <- function(new) {
 }
 
 # ---- plots ----------------------------------------------------------------
-ELEV_COL <- c("8,550 ft" = "#E69F00", "10,500 ft" = "#0072B2", "11,068 ft" = "#CC79A7")
+ELEV_COL <- c("8,550 ft" = "#EF6323", "10,500 ft" = "#00AE9B", "11,068 ft" = "#0032A0")
+PRECIP_COL <- "#0032A0"; SNOW_COL <- "#EF6323"
 INK <- "#222222"; MUTED <- "#555555"; GRID <- "#d9d9d9"
 CAPTION <- "Source: Alta Hourly Wx Roundup (wxstns.net). Times are hour-ending, Mountain."
 
@@ -155,26 +156,21 @@ plot_rh <- function(df) {
 }
 
 plot_precip <- function(df) {
-  d <- df |>
-    select(datetime, `9,664 ft` = h2o_9664, `8,550 ft` = h2o_8550) |>
-    pivot_longer(-datetime, names_to = "gauge", values_to = "value")
-  p1 <- ggplot(d, aes(datetime, value, fill = gauge)) +
-    geom_col(position = position_dodge(width = 2400), width = 2400, na.rm = TRUE) +
-    scale_fill_manual(values = c("9,664 ft" = "#0072B2", "8,550 ft" = "#E69F00")) +
-    scale_y_continuous(expand = expansion(mult = c(0, 0.08))) +
+  wmax <- max(pretty(c(0, max(df$h2o_9664, 0.05, na.rm = TRUE))))
+  smax <- max(pretty(c(0, max(df$snow12_9664, 2, na.rm = TRUE))))
+  k <- smax / wmax  # snow inches per water inch on the secondary axis
+  ggplot(df, aes(datetime)) +
+    geom_col(aes(y = h2o_9664), fill = PRECIP_COL, width = 2400, na.rm = TRUE) +
+    geom_line(aes(y = snow12_9664 / k), colour = SNOW_COL, linewidth = 1, na.rm = TRUE) +
+    scale_y_continuous(limits = c(0, wmax), expand = expansion(mult = c(0, 0.02)),
+                       sec.axis = sec_axis(~ . * k, name = "12-hr snow (in)")) +
     time_scale(df) +
-    labs(title = "Precipitation", subtitle = "Hourly water equivalent by gauge elevation",
-         y = "Water equivalent (in)") +
-    theme_roundup()
-  p2 <- ggplot(df, aes(datetime, snow12_9664)) +
-    geom_area(fill = "#0072B2", alpha = 0.25, na.rm = TRUE) +
-    geom_line(colour = "#0072B2", linewidth = 0.9, na.rm = TRUE) +
-    scale_y_continuous(expand = expansion(mult = c(0, 0.08))) +
-    time_scale(df) +
-    labs(title = "Snow", subtitle = "Rolling 12-hour total at 9,664 ft",
-         y = "Snow (in)", caption = CAPTION) +
-    theme_roundup()
-  p1 / p2
+    labs(title = "Precipitation at 9,664 ft",
+         subtitle = "Bars = hourly water equivalent (left axis), line = rolling 12-hour snow (right axis)",
+         y = "Water equivalent (in)", caption = CAPTION) +
+    theme_roundup() +
+    theme(axis.title.y.left = element_text(colour = PRECIP_COL, face = "bold"),
+          axis.title.y.right = element_text(colour = SNOW_COL, face = "bold"))
 }
 
 wind_station <- function(df, suffix, label, col) {
@@ -184,30 +180,28 @@ wind_station <- function(df, suffix, label, col) {
               dir = df[[paste0("wdir_", suffix)]])
   if (!any(d$gust > 0 | d$spd > 0, na.rm = TRUE)) return(NULL)
   d$dir[!is.na(d$spd) & d$spd == 0] <- NA  # direction meaningless when calm
-  top <- ggplot(d, aes(datetime)) +
-    geom_ribbon(aes(ymin = spd, ymax = pmax(gust, spd)), fill = col, alpha = 0.22,
-                na.rm = TRUE) +
-    geom_line(aes(y = gust), colour = col, linewidth = 0.4, linetype = "dotted",
+  ymax <- max(pretty(c(0, max(d$gust, d$spd, 5, na.rm = TRUE))))
+  ggplot(d, aes(datetime)) +
+    geom_line(aes(y = gust), colour = col, linewidth = 0.7, linetype = "dashed",
               na.rm = TRUE) +
-    geom_line(aes(y = spd), colour = col, linewidth = 1, na.rm = TRUE) +
-    scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.08))) +
+    geom_line(aes(y = spd), colour = col, linewidth = 1.1, na.rm = TRUE) +
+    geom_point(aes(y = dir / 360 * ymax), shape = 21, fill = "white", colour = INK,
+               size = 1.8, stroke = 0.5, na.rm = TRUE) +
+    scale_y_continuous(limits = c(0, ymax), expand = expansion(mult = c(0, 0.02)),
+                       sec.axis = sec_axis(~ . / ymax * 360, name = "Direction",
+                                           breaks = c(0, 90, 180, 270, 360),
+                                           labels = c("N", "E", "S", "W", "N"))) +
     time_scale(df) +
     labs(title = paste0("Wind at ", label),
-         subtitle = "Solid line = hourly average, shaded band = max gust",
+         subtitle = "Solid = hourly average, dashed = max gust, circles = direction (right axis)",
          y = "Speed (mph)") +
-    theme_roundup() + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
-  bot <- ggplot(d, aes(datetime, dir)) +
-    geom_point(colour = col, size = 1.8, na.rm = TRUE) +
-    scale_y_continuous(limits = c(0, 360), breaks = c(0, 90, 180, 270, 360),
-                       labels = c("N", "E", "S", "W", "N")) +
-    time_scale(df) + labs(y = "Direction") + theme_roundup()
-  top / bot + plot_layout(heights = c(3, 1.1))
+    theme_roundup()
 }
 
 plot_wind <- function(df) {
   panels <- list(wind_station(df, "8550", "8,550 ft", ELEV_COL[["8,550 ft"]]),
                  wind_station(df, "10500", "10,500 ft", ELEV_COL[["10,500 ft"]]),
-                 wind_station(df, "baldy", "Mt. Baldy", "#009E73"))
+                 wind_station(df, "baldy", "Mt. Baldy", "#555555"))
   panels <- Filter(Negate(is.null), panels)
   if (!length(panels)) return(NULL)
   wrap_plots(panels, ncol = 1) +
@@ -314,10 +308,11 @@ build_report <- function(hist, plots) {
          sprintf("9,664 ft &middot; %d hrs of data", nrow(last24))),
     tile("RH 10,500 ft", paste0(fmt(now$rh_10500), "%"), "hourly average")
   )
-  imgs <- paste(vapply(names(plots), function(n) {
-    if (is.null(plots[[n]])) "" else sprintf("<section><h2>%s</h2>%s</section>", n,
-                                              img_tag(plots[[n]], n))
-  }, ""), collapse = "\n")
+  imgs <- paste0("<section class='plots'>",
+                 paste(vapply(names(plots), function(n) {
+                   if (is.null(plots[[n]])) "" else img_tag(plots[[n]], n)
+                 }, ""), collapse = "\n"),
+                 "</section>")
 
   css <- "
   body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#222;margin:0;background:#f7f8fa}
@@ -335,7 +330,8 @@ build_report <- function(hist, plots) {
   .wx td.dt{background:#f3f4f6;font-weight:600}.wx td.na{color:#bbb}
   .wx tr.day td{background:#e5e7eb;text-align:left;font-weight:700;padding:4px 8px}
   .deg{color:#6b7280;font-size:10px}
-  section img{width:100%;height:auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px}"
+  section.plots{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin-top:28px}
+  section.plots img{display:block;width:100%;height:auto;margin:0 0 8px}"
 
   html <- sprintf("<!doctype html><html lang='en'><head><meta charset='utf-8'>
 <meta name='viewport' content='width=device-width,initial-scale=1'>
@@ -367,7 +363,7 @@ main <- function() {
   w <- plot_wind(win)
   if (!is.null(w)) {
     n <- length(w$patches$plots) + 1
-    plots[["Wind"]] <- save_plot(w, "wind", height = 3.6 * n)
+    plots[["Wind"]] <- save_plot(w, "wind", height = 3.3 * n)
   }
   out <- build_report(hist, plots)
   message("Report: ", out)
