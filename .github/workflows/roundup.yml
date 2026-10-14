@@ -2,7 +2,7 @@ name: Alta roundup
 
 on:
   schedule:
-    - cron: "3 * * * *"   # 7 minutes past every hour (UTC clock, same minute everywhere)
+    - cron: "3 * * * *"   # 3 minutes past every hour (UTC clock, same minute everywhere)
   workflow_dispatch:
 
 permissions:
