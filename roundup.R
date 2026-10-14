@@ -257,8 +257,8 @@ snow_cells   <- function(x) ramp_cell(x, 0, 12, c("#ffffff", "#2b7bba"), "%.1f")
 
 build_table <- function(df) {
   d <- df |> arrange(desc(datetime)) |> head(TABLE_HOURS)
-  lab <- format(d$datetime, "%a %b %d", tz = TZ)
-  tm  <- format(d$datetime, "%H:%M", tz = TZ)
+  lab <- format(d$datetime - 1, "%a %b %d", tz = TZ)  # hour-ending: 00:00 belongs to the prior day
+  tm  <- sub("^00:", "24:", format(d$datetime, "%H:%M", tz = TZ))
   newday <- c(TRUE, lab[-1] != lab[-length(lab)])
 
   dirc <- function(spd, deg) ifelse(is.na(deg) | is.na(spd) | spd == 0, '<td class="na">&ndash;</td>',
@@ -362,7 +362,7 @@ build_report <- function(hist, plots, win) {
 <h2>Last %d hours</h2><div class='scroll'>%s</div>
 %s
 </main></body></html>",
-    css, format(now$datetime, "%a %b %d, %H:%M %Z", tz = TZ),
+    css, paste0(format(now$datetime - 1, "%a %b %d, ", tz = TZ), sub("^00:", "24:", format(now$datetime, "%H:%M %Z", tz = TZ))),
     format(Sys.time(), "%b %d %H:%M %Z", tz = TZ), URL, tiles,
     TABLE_HOURS, build_table(hist), imgs)
   path <- file.path(OUT_DIR, "roundup.html")

@@ -13,6 +13,8 @@
   const fmtT = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
   const fmtDay = new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday: "short", month: "short", day: "2-digit" });
   const hourOf = (t) => +fmtT.format(t).slice(0, 2) * 60 + +fmtT.format(t).slice(3);
+  // Hour-ending convention: 00:00 is shown as 24:00 of the previous day.
+  const dayLbl = (f, t) => f.format(t - 1000), timeLbl = (t) => fmtT.format(t).replace(/^00:/, "24:");
   const compass = (d) => ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"][Math.round(d / 22.5) % 16];
   const niceMax = (v) => { const p = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p; };
   const ticksTo = (max, k) => { const s = niceMax(max / k) / 1; return Array.from({ length: Math.floor(max / s + 1e-9) + 1 }, (_, i) => i * s); };
@@ -137,8 +139,8 @@
   const ay = panels[panels.length - 1].top + PH;
   xticks.forEach((t) => {
     el("line", { x1: X(t), x2: X(t), y1: ay, y2: ay + 5, stroke: INK }, svg);
-    el("text", { x: X(t), y: ay + 18, "text-anchor": "middle", "font-size": 11, fill: INK }, svg, fmtD.format(t));
-    el("text", { x: X(t), y: ay + 32, "text-anchor": "middle", "font-size": 11, fill: INK }, svg, fmtT.format(t));
+    el("text", { x: X(t), y: ay + 18, "text-anchor": "middle", "font-size": 11, fill: INK }, svg, dayLbl(fmtD, t));
+    el("text", { x: X(t), y: ay + 32, "text-anchor": "middle", "font-size": 11, fill: INK }, svg, timeLbl(t));
   });
 
   // ---- hover: crosshair across all panels + tooltip ----
@@ -162,7 +164,7 @@
         if (d.l.type === "dir") d.c.setAttribute("stroke", INK); } });
     const wl = (key, s) => panels.flatMap((p) => p.layers).find((l) => l.key === key + s);
     const sec = (title, rows) => `<tr class="h"><th colspan="2">${title}</th></tr>` + rows;
-    let h = `<div class="tt">${fmtDay.format(t)}, ${fmtT.format(t)} <span>(hour ending)</span></div><table>`;
+    let h = `<div class="tt">${dayLbl(fmtDay, t)}, ${timeLbl(t)} <span>(hour ending)</span></div><table>`;
     h += sec("Precip at 9,664 ft", row("#0032A0", "Water eq.", val({ key: "h2o_9664", dp: 2, unit: " in" }, k)) + row("#EF6323", "12-hr snow", val({ key: "snow12_9664", dp: 1, unit: " in" }, k)));
     h += sec("Temp", ELEV.map((e) => row(e[2], e[0], val({ key: "temp_" + e[1], dp: 0, unit: "°F" }, k))).join(""));
     h += sec("RH", ELEV.map((e) => row(e[2], e[0], val({ key: "rh_" + e[1], dp: 0, unit: "%" }, k))).join(""));
