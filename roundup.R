@@ -99,15 +99,16 @@ theme_roundup <- function() {
           panel.grid.major = element_line(colour = GRID, linewidth = 0.3),
           panel.border = element_rect(colour = INK, fill = NA, linewidth = 0.6),
           axis.ticks = element_line(colour = INK, linewidth = 0.4),
-          plot.title = element_text(face = "bold", colour = INK, size = 13),
+          plot.title = element_text(face = "bold", colour = INK, size = 10),
           plot.subtitle = element_text(colour = MUTED, size = 10),
           plot.caption = element_text(colour = MUTED, size = 8, hjust = 0),
           plot.title.position = "plot", plot.caption.position = "plot",
           axis.title.x = element_blank(),
           axis.title.y = element_text(colour = INK, size = 10),
           axis.text = element_text(colour = INK, size = 9),
-          plot.margin = margin(8, 18, 8, 8),
+          plot.margin = margin(2, 14, 2, 8),
           legend.position = "top", legend.justification = "left",
+          legend.margin = margin(0, 0, 0, 0), legend.box.margin = margin(0, 0, 0, 0),
           legend.title = element_blank(),
           legend.key = element_blank(),
           strip.text = element_text(face = "bold", hjust = 0))
@@ -117,6 +118,7 @@ time_scale <- function(df) {
   span <- as.numeric(diff(range(df$datetime)), units = "hours")
   brk <- if (span > 48) "12 hours" else if (span > 24) "6 hours" else "3 hours"
   scale_x_datetime(date_breaks = brk, date_labels = "%b %d\n%H:%M", timezone = TZ,
+                   limits = range(df$datetime), oob = scales::oob_keep,
                    expand = expansion(mult = 0.01))
 }
 
@@ -138,8 +140,7 @@ plot_temp <- function(df) {
     geom_line(linewidth = 0.9, na.rm = TRUE) +
     scale_colour_manual(values = ELEV_COL) +
     time_scale(df) +
-    labs(title = "Temperature by elevation", subtitle = "Hourly average",
-         y = "Temperature (°F)", caption = CAPTION) +
+    labs(title = "Temperature by elevation (hourly average)", y = "Temp (°F)") +
     theme_roundup()
 }
 
@@ -150,8 +151,7 @@ plot_rh <- function(df) {
     scale_colour_manual(values = ELEV_COL) +
     scale_y_continuous(limits = c(NA, 100), labels = function(x) paste0(x, "%")) +
     time_scale(df) +
-    labs(title = "Relative humidity by elevation", subtitle = "Hourly average",
-         y = "Relative humidity", caption = CAPTION) +
+    labs(title = "Relative humidity by elevation (hourly average)", y = "RH") +
     theme_roundup()
 }
 
@@ -165,9 +165,8 @@ plot_precip <- function(df) {
     scale_y_continuous(limits = c(0, wmax), expand = expansion(mult = c(0, 0.02)),
                        sec.axis = sec_axis(~ . * k, name = "12-hr snow (in)")) +
     time_scale(df) +
-    labs(title = "Precipitation at 9,664 ft",
-         subtitle = "Bars = hourly water equivalent (left axis), line = rolling 12-hour snow (right axis)",
-         y = "Water equivalent (in)", caption = CAPTION) +
+    labs(title = "Precipitation at 9,664 ft: bars = hourly water equivalent (left), line = rolling 12-hr snow (right)",
+         y = "Water eq. (in)") +
     theme_roundup() +
     theme(axis.title.y.left = element_text(colour = PRECIP_COL, face = "bold"),
           axis.title.y.right = element_text(colour = SNOW_COL, face = "bold"))
@@ -192,23 +191,36 @@ wind_station <- function(df, suffix, label, col) {
                                            breaks = c(0, 90, 180, 270, 360),
                                            labels = c("N", "E", "S", "W", "N"))) +
     time_scale(df) +
-    labs(title = paste0("Wind at ", label),
-         subtitle = "Solid = hourly average, dashed = max gust, circles = direction (right axis)",
+    labs(title = paste0("Wind at ", label, ": solid = average, dashed = max gust, circles = direction (right)"),
          y = "Speed (mph)") +
     theme_roundup()
 }
 
-plot_wind <- function(df) {
-  panels <- list(wind_station(df, "8550", "8,550 ft", ELEV_COL[["8,550 ft"]]),
-                 wind_station(df, "10500", "10,500 ft", ELEV_COL[["10,500 ft"]]),
-                 wind_station(df, "baldy", "Mt. Baldy", "#555555"))
-  panels <- Filter(Negate(is.null), panels)
-  if (!length(panels)) return(NULL)
-  wrap_plots(panels, ncol = 1) +
-    plot_annotation(caption = CAPTION, theme = theme_roundup())
+wind_panels <- function(df) {
+  Filter(Negate(is.null),
+         list(wind_station(df, "8550", "8,550 ft", ELEV_COL[["8,550 ft"]]),
+              wind_station(df, "10500", "10,500 ft", ELEV_COL[["10,500 ft"]]),
+              wind_station(df, "baldy", "Mt. Baldy", "#555555")))
 }
 
-save_plot <- function(p, name, width = 10, height = 4.2) {
+# One tall figure: all panels stacked on a shared time axis (labels on the bottom only).
+plot_all <- function(df) {
+  panels <- c(list(plot_precip(df), plot_temp(df), plot_rh(df)), wind_panels(df))
+  n <- length(panels)
+  no_x <- theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+  panels[-n] <- lapply(panels[-n], function(p) p + no_x)
+  wrap_plots(panels, ncol = 1, guides = "collect") +
+    plot_annotation(caption = CAPTION, theme = theme_roundup()) &
+    theme(legend.position = "top")
+}
+
+chart_data <- function(df) {
+  d <- as.list(df[, setdiff(names(df), "datetime")])
+  d$t <- as.numeric(df$datetime) * 1000
+  jsonlite::toJSON(d, na = "null", digits = NA)
+}
+
+save_plot <- function(p, name, width = 12, height = 10) {
   path <- file.path(OUT_DIR, paste0(name, ".png"))
   ggsave(path, p, device = ragg::agg_png, width = width, height = height,
          dpi = 150, bg = "white")
@@ -288,7 +300,7 @@ img_tag <- function(path, alt) {
 
 fmt <- function(x, f = "%.0f", na = "&ndash;") ifelse(is.na(x), na, sprintf(f, x))
 
-build_report <- function(hist, plots) {
+build_report <- function(hist, plots, win) {
   now <- hist |> slice_max(datetime, n = 1)
   last24 <- hist |> filter(datetime > max(datetime) - 24 * 3600)
   tile <- function(label, value, sub = "") sprintf(
@@ -308,11 +320,11 @@ build_report <- function(hist, plots) {
          sprintf("9,664 ft &middot; %d hrs of data", nrow(last24))),
     tile("RH 10,500 ft", paste0(fmt(now$rh_10500), "%"), "hourly average")
   )
-  imgs <- paste0("<section class='plots'>",
-                 paste(vapply(names(plots), function(n) {
-                   if (is.null(plots[[n]])) "" else img_tag(plots[[n]], n)
-                 }, ""), collapse = "\n"),
-                 "</section>")
+  imgs <- paste0("<section class='plots'><div id='interactive'></div>",
+                 "<noscript>", img_tag(plots[[1]], names(plots)[1]), "</noscript>",
+                 "<script>window.ROUNDUP_DATA=", chart_data(win), ";</script>",
+                 "<script>", paste(readLines(file.path(script_dir, "chart.js"), encoding = "UTF-8"),
+                                   collapse = "\n"), "</script></section>")
 
   css <- "
   body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#222;margin:0;background:#f7f8fa}
@@ -331,7 +343,15 @@ build_report <- function(hist, plots) {
   .wx tr.day td{background:#e5e7eb;text-align:left;font-weight:700;padding:4px 8px}
   .deg{color:#6b7280;font-size:10px}
   section.plots{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin-top:28px}
-  section.plots img{display:block;width:100%;height:auto;margin:0 0 8px}"
+  #interactive{position:relative}
+  svg.ichart{display:block;width:100%;height:auto;max-height:calc(100vh - 56px);touch-action:pan-y;font-family:inherit}
+  .itip{display:none;position:absolute;pointer-events:none;background:rgba(255,255,255,.96);border:1px solid #9ca3af;border-radius:6px;padding:6px 9px;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:5}
+  .itip .tt{font-weight:700;margin-bottom:2px}.itip .tt span{font-weight:400;color:#6b7280}
+  .itip table{border-collapse:collapse}.itip td{padding:0 0 0 10px;white-space:nowrap}.itip td:first-child{padding-left:0;color:#374151}
+  .itip td:last-child{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+  .itip th{text-align:left;font-size:11px;color:#6b7280;padding-top:4px;text-transform:uppercase;letter-spacing:.03em}
+  .itip i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+  noscript img{display:block;max-width:100%;margin:0 auto}"
 
   html <- sprintf("<!doctype html><html lang='en'><head><meta charset='utf-8'>
 <meta name='viewport' content='width=device-width,initial-scale=1'>
@@ -355,17 +375,8 @@ main <- function() {
   hist <- update_history(parse_roundup(fetch_roundup()))
   win <- hist |> filter(datetime > max(datetime) - PLOT_HOURS * 3600)
 
-  plots <- list(
-    "Temperature"        = save_plot(plot_temp(win), "temperature"),
-    "Precipitation and snow" = save_plot(plot_precip(win), "precip", height = 6.5),
-    "Relative humidity"  = save_plot(plot_rh(win), "rh")
-  )
-  w <- plot_wind(win)
-  if (!is.null(w)) {
-    n <- length(w$patches$plots) + 1
-    plots[["Wind"]] <- save_plot(w, "wind", height = 3.3 * n)
-  }
-  out <- build_report(hist, plots)
+  plots <- list("Weather plots" = save_plot(plot_all(win), "roundup_plots"))
+  out <- build_report(hist, plots, win)
   message("Report: ", out)
   invisible(out)
 }

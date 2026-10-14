@@ -15,7 +15,7 @@ Outputs:
 
 - `data/alta_hourly.csv` – accumulated history (deduplicated on timestamp, newest scrape wins)
 - `output/roundup.html` – the report (images embedded; open or email as a single file)
-- `output/*.png` – the individual plots
+- `output/roundup_plots.png` – static fallback of the plots (the report itself has interactive hover plots, drawn by `chart.js`)
 
 Options (environment variables): `ROUNDUP_PLOT_HOURS` (default 72, hours of history plotted),
 `ROUNDUP_TABLE_HOURS` (default 24).
