@@ -266,7 +266,7 @@ build_table <- function(df) {
                                             compass(deg), as.integer(round(deg))))
   cols <- list(
     sprintf("<td class='dt'>%s</td>", tm),
-    precip_cells(d$h2o_9664), precip_cells(d$h2o_8550), snow_cells(d$snow12_9664),
+    precip_cells(d$h2o_9664), snow_cells(d$snow12_9664),
     temp_cells(d$temp_8550), temp_cells(d$temp_10500), temp_cells(d$temp_11068),
     rh_cells(d$rh_8550), rh_cells(d$rh_10500), rh_cells(d$rh_11068),
     wind_cells(d$wspd_8550), wind_cells(d$wgust_8550), dirc(d$wspd_8550, d$wdir_8550),
@@ -275,16 +275,16 @@ build_table <- function(df) {
   )
   rows <- vapply(seq_len(nrow(d)), function(i) {
     cells <- paste(vapply(cols, `[`, "", i), collapse = "")
-    day <- if (newday[i]) sprintf("<tr class='day'><td colspan='19'>%s</td></tr>", lab[i]) else ""
+    day <- if (newday[i]) sprintf("<tr class='day'><td colspan='18'>%s</td></tr>", lab[i]) else ""
     paste0(day, "<tr>", cells, "</tr>")
   }, "")
 
   hdr <- paste0(
     "<thead><tr><th rowspan='2'>Time</th>",
-    "<th colspan='3'>Precip / snow (in)</th><th colspan='3'>Temp (&deg;F)</th>",
+    "<th colspan='2'>Precip / snow (in)</th><th colspan='3'>Temp (&deg;F)</th>",
     "<th colspan='3'>RH (%)</th><th colspan='3'>Wind 8,550 ft (mph)</th>",
     "<th colspan='3'>Wind 10,500 ft (mph)</th><th colspan='3'>Mt. Baldy wind (mph)</th></tr>",
-    "<tr><th>H2O 9,664</th><th>H2O 8,550</th><th>Snow 12h</th>",
+    "<tr><th>H2O 9,664</th><th>Snow 12h</th>",
     "<th>8,550</th><th>10,500</th><th>11,068</th>",
     "<th>8,550</th><th>10,500</th><th>11,068</th>",
     "<th>Avg</th><th>Gust</th><th>Dir</th><th>Avg</th><th>Gust</th><th>Dir</th>",
