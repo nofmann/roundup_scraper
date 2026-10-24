@@ -4,9 +4,10 @@
   const TZ = "America/Denver", NS = "http://www.w3.org/2000/svg";
   const INK = "#222", MUTED = "#555", GRID = "#d9d9d9";
   const ELEV = [["8,550 ft", "8550", "#EF6323"], ["10,500 ft", "10500", "#00AE9B"], ["11,068 ft", "11068", "#0032A0"]];
-  const W = 1200, ML = 64, MR = 64, PH = 150, GAP = 30, TOP = 26, AXIS_H = 44;
-  const D = window.ROUNDUP_DATA, host = document.getElementById("interactive");
-  const n = D.t.length;
+  const W = 1200, ML = 70, MR = 70, PH = 150, GAP = 34, TOP = 32, AXIS_H = 50;
+  const ALL = window.ROUNDUP_DATA, host = document.getElementById("interactive");
+  const DEFAULT_H = window.ROUNDUP_DEFAULT_HOURS || 72;
+  let D, n;  // the slice of ALL currently drawn
   const has = (k) => D[k] && D[k].some((v) => v !== null);
   const fin = (a) => a.filter((v) => v !== null);
   const fmtD = new Intl.DateTimeFormat("en-US", { timeZone: TZ, month: "short", day: "2-digit" });
@@ -25,6 +26,14 @@
     for (let v = a; v <= b + 1e-9; v += s) t.push(+v.toFixed(6));
     return { lo: a, hi: b, ticks: t };
   };
+
+  function draw(lo, hi) {
+  const keep = ALL.t.map((t) => t >= lo && t <= hi);
+  D = {};
+  for (const k in ALL) D[k] = ALL[k].filter((_, i) => keep[i]);
+  n = D.t.length;
+  host.textContent = "";
+  if (n < 2) { host.textContent = "Fewer than two observations in this range."; return; }
 
   // ---- panel definitions ----
   const panels = [];
@@ -66,7 +75,7 @@
       layers: [
         { type: "line", key: "wgust_" + s, col, label: "Gust", unit: " mph", dp: 0, w: 1.4, dash: "5 4" },
         { type: "line", key: "wspd_" + s, col, label: "Avg", unit: " mph", dp: 0, w: 2.4 },
-        { type: "dir", key: "wdir_" + s, spd: "wspd_" + s, label: "Dir", sec: true },
+        { type: "dir", key: "wdir_" + s, spd: "wspd_" + s, label: "Dir", sec: true, col },
       ],
     });
   });
@@ -91,21 +100,26 @@
 
   // x ticks: every 12 / 6 / 3 hours depending on span (local Mountain time)
   const spanH = (t1 - t0) / 3.6e6, stepMin = (spanH > 48 ? 12 : spanH > 24 ? 6 : 3) * 60;
-  const xticks = D.t.filter((t) => hourOf(t) % stepMin === 0);
+  let xticks;
+  if (spanH <= 96) xticks = D.t.filter((t) => hourOf(t) % stepMin === 0);
+  else {  // long ranges: midnights only, thinned to about a dozen labels
+    const mids = D.t.filter((t) => hourOf(t) === 0), k = Math.ceil(mids.length / 12);
+    xticks = mids.filter((_, i) => i % k === 0);
+  }
 
   panels.forEach((p, i) => {
     const g = el("g", {}, svg), x0 = ML, x1 = W - MR;
     xticks.forEach((t) => el("line", { x1: X(t), x2: X(t), y1: p.top, y2: p.top + PH, stroke: GRID, "stroke-width": 0.7 }, g));
     p.y.ticks.forEach((v) => {
       el("line", { x1: x0, x2: x1, y1: Y(p, v), y2: Y(p, v), stroke: GRID, "stroke-width": 0.7 }, g);
-      el("text", { x: x0 - 6, y: Y(p, v) + 4, "text-anchor": "end", "font-size": 11, fill: INK }, g, +v.toFixed(2) + (p.ylab.startsWith("RH") ? "%" : ""));
+      el("text", { x: x0 - 6, y: Y(p, v) + 4, "text-anchor": "end", "font-size": 13, fill: INK }, g, +v.toFixed(2) + (p.ylab.startsWith("RH") ? "%" : ""));
     });
     if (p.ref !== undefined) {
       el("line", { x1: x0, x2: x1, y1: Y(p, p.ref), y2: Y(p, p.ref), stroke: MUTED, "stroke-dasharray": "5 4" }, g);
-      el("text", { x: x0 + 4, y: Y(p, p.ref) - 4, "font-size": 11, fill: MUTED }, g, p.refLabel);
+      el("text", { x: x0 + 4, y: Y(p, p.ref) - 4, "font-size": 13, fill: MUTED }, g, p.refLabel);
     }
     if (p.y2) p.y2.ticks.forEach((v, k) =>
-      el("text", { x: x1 + 6, y: Y(p, v, true) + 4, "font-size": 11, fill: INK }, g, p.y2.names ? p.y2.names[k] : +v.toFixed(2)));
+      el("text", { x: x1 + 6, y: Y(p, v, true) + 4, "font-size": 13, fill: INK }, g, p.y2.names ? p.y2.names[k] : +v.toFixed(2)));
 
     // data layers
     p.layers.forEach((l) => {
@@ -121,17 +135,17 @@
         el("path", { d, fill: "none", stroke: l.col, "stroke-width": l.w, "stroke-dasharray": l.dash || "", "stroke-linejoin": "round" }, g);
       } else {
         v.forEach((y, k) => { if (y === null || D[l.spd][k] === 0 || D[l.spd][k] === null) return;
-          el("circle", { cx: X(D.t[k]), cy: Y(p, y / 360 * p.y2.hi, true), r: 3, fill: "#fff", stroke: INK, "stroke-width": 1 }, g); });
+          el("circle", { cx: X(D.t[k]), cy: Y(p, y / 360 * p.y2.hi, true), r: 3, fill: l.col, stroke: INK, "stroke-width": 1 }, g); });
       }
     });
 
     // frame, title, axis titles
     el("rect", { x: x0, y: p.top, width: x1 - x0, height: PH, fill: "none", stroke: INK, "stroke-width": 1 }, g);
-    el("text", { x: 0, y: p.top - 9, "font-size": 13, "font-weight": 700, fill: INK }, g, p.title);
-    const yl = el("text", { transform: `translate(14 ${p.top + PH / 2}) rotate(-90)`, "text-anchor": "middle", "font-size": 12, fill: p.ylabCol || INK, "font-weight": p.ylabCol ? 700 : 400 }, g, p.ylab);
-    if (p.y2) el("text", { transform: `translate(${W - 12} ${p.top + PH / 2}) rotate(90)`, "text-anchor": "middle", "font-size": 12, fill: p.y2.col, "font-weight": p.y2.col !== INK ? 700 : 400 }, g, p.y2.lab);
+    el("text", { x: 0, y: p.top - 10, "font-size": 15, "font-weight": 700, fill: INK }, g, p.title);
+    const yl = el("text", { transform: `translate(14 ${p.top + PH / 2}) rotate(-90)`, "text-anchor": "middle", "font-size": 14, fill: p.ylabCol || INK, "font-weight": p.ylabCol ? 700 : 400 }, g, p.ylab);
+    if (p.y2) el("text", { transform: `translate(${W - 12} ${p.top + PH / 2}) rotate(90)`, "text-anchor": "middle", "font-size": 14, fill: p.y2.col, "font-weight": p.y2.col !== INK ? 700 : 400 }, g, p.y2.lab);
     if (p.legend) { let lx = x1; [...ELEV].reverse().forEach((e) => {
-      const lab = el("text", { x: lx - 4, y: p.top - 9, "text-anchor": "end", "font-size": 12, fill: INK }, g, e[0]);
+      const lab = el("text", { x: lx - 4, y: p.top - 10, "text-anchor": "end", "font-size": 14, fill: INK }, g, e[0]);
       const w = lab.getComputedTextLength ? lab.getComputedTextLength() || 62 : 62;
       el("line", { x1: lx - w - 24, x2: lx - w - 8, y1: p.top - 13, y2: p.top - 13, stroke: e[2], "stroke-width": 3 }, g); lx -= w + 40; }); }
   });
@@ -139,8 +153,8 @@
   const ay = panels[panels.length - 1].top + PH;
   xticks.forEach((t) => {
     el("line", { x1: X(t), x2: X(t), y1: ay, y2: ay + 5, stroke: INK }, svg);
-    el("text", { x: X(t), y: ay + 18, "text-anchor": "middle", "font-size": 11, fill: INK }, svg, dayLbl(fmtD, t));
-    el("text", { x: X(t), y: ay + 32, "text-anchor": "middle", "font-size": 11, fill: INK }, svg, timeLbl(t));
+    el("text", { x: X(t), y: ay + 20, "text-anchor": "middle", "font-size": 13, fill: INK }, svg, dayLbl(fmtD, t));
+    el("text", { x: X(t), y: ay + 37, "text-anchor": "middle", "font-size": 13, fill: INK }, svg, timeLbl(t));
   });
 
   // ---- hover: crosshair across all panels + tooltip ----
@@ -189,4 +203,33 @@
     show(best, e.clientX, e.clientY);
   });
   svg.addEventListener("pointerleave", hide);
+  }
+
+  // ---- date/time range controls (Mountain time) ----
+  const fmtWall = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  const wallParts = (t) => { const p = {}; fmtWall.formatToParts(t).forEach((x) => (p[x.type] = +x.value)); return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute); };
+  const toWall = (t) => new Date(wallParts(t)).toISOString().slice(0, 16);
+  const fromWall = (s) => { const u = Date.parse(s + "Z"); let t = u; for (let i = 0; i < 2; i++) t += u - wallParts(t); return t; };
+
+  const tMin = ALL.t[0], tMax = ALL.t[ALL.t.length - 1];
+  const bar = document.createElement("div"); bar.className = "rangebar";
+  bar.innerHTML = '<label>From <input type="datetime-local" id="rfrom"></label><label>To <input type="datetime-local" id="rto"></label>' +
+    '<span class="presets"></span><span class="note">Mountain time, hour ending</span>';
+  host.parentNode.insertBefore(bar, host);
+  const inFrom = bar.querySelector("#rfrom"), inTo = bar.querySelector("#rto");
+  [inFrom, inTo].forEach((i) => { i.min = toWall(tMin); i.max = toWall(tMax); });
+  const apply = (lo, hi) => {
+    lo = Math.max(tMin, lo); hi = Math.min(tMax, hi);
+    if (lo > hi) [lo, hi] = [hi, lo];
+    inFrom.value = toWall(lo); inTo.value = toWall(hi);
+    draw(lo, hi);
+  };
+  [["24 h", 24], ["72 h", 72], ["7 d", 168], ["30 d", 720], ["All", Infinity]].forEach(([label, h]) => {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = label;
+    b.addEventListener("click", () => apply(tMax - h * 3.6e6, tMax));
+    bar.querySelector(".presets").appendChild(b);
+  });
+  const fromInputs = () => { if (inFrom.value && inTo.value) apply(fromWall(inFrom.value), fromWall(inTo.value)); };
+  inFrom.addEventListener("change", fromInputs); inTo.addEventListener("change", fromInputs);
+  apply(tMax - DEFAULT_H * 3.6e6, tMax);
 })();

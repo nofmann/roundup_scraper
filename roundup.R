@@ -184,7 +184,7 @@ wind_station <- function(df, suffix, label, col) {
     geom_line(aes(y = gust), colour = col, linewidth = 0.7, linetype = "dashed",
               na.rm = TRUE) +
     geom_line(aes(y = spd), colour = col, linewidth = 1.1, na.rm = TRUE) +
-    geom_point(aes(y = dir / 360 * ymax), shape = 21, fill = "white", colour = INK,
+    geom_point(aes(y = dir / 360 * ymax), shape = 21, fill = col, colour = INK,
                size = 1.8, stroke = 0.5, na.rm = TRUE) +
     scale_y_continuous(limits = c(0, ymax), expand = expansion(mult = c(0, 0.02)),
                        sec.axis = sec_axis(~ . / ymax * 360, name = "Direction",
@@ -262,16 +262,20 @@ build_table <- function(df) {
   newday <- c(TRUE, lab[-1] != lab[-length(lab)])
 
   dirc <- function(spd, deg) ifelse(is.na(deg) | is.na(spd) | spd == 0, '<td class="na">&ndash;</td>',
-                                    sprintf("<td>%s <span class='deg'>%03d&deg;</span></td>",
-                                            compass(deg), as.integer(round(deg))))
+                                    # meteorological dir = where wind comes FROM; arrow points where it blows TO
+                                    sprintf(paste0("<td title='%03d&deg;'>%s <svg class='vec' viewBox='-8 -8 16 16' ",
+                                                   "style='transform:rotate(%ddeg)'><path d='M0-6V6M-4 2L0 6L4 2' ",
+                                                   "fill='none' stroke='currentColor' stroke-width='1.8' ",
+                                                   "stroke-linecap='round' stroke-linejoin='round'/></svg></td>"),
+                                            as.integer(round(deg)) %% 360, compass(deg), as.integer(round(deg)) %% 360))
   cols <- list(
     sprintf("<td class='dt'>%s</td>", tm),
     precip_cells(d$h2o_9664), snow_cells(d$snow12_9664),
     temp_cells(d$temp_8550), temp_cells(d$temp_10500), temp_cells(d$temp_11068),
     rh_cells(d$rh_8550), rh_cells(d$rh_10500), rh_cells(d$rh_11068),
-    wind_cells(d$wspd_8550), wind_cells(d$wgust_8550), dirc(d$wspd_8550, d$wdir_8550),
-    wind_cells(d$wspd_10500), wind_cells(d$wgust_10500), dirc(d$wspd_10500, d$wdir_10500),
-    wind_cells(d$wspd_baldy), wind_cells(d$wgust_baldy), dirc(d$wspd_baldy, d$wdir_baldy)
+    wind_cells(d$wspd_8550), dirc(d$wspd_8550, d$wdir_8550), wind_cells(d$wgust_8550),
+    wind_cells(d$wspd_10500), dirc(d$wspd_10500, d$wdir_10500), wind_cells(d$wgust_10500),
+    wind_cells(d$wspd_baldy), dirc(d$wspd_baldy, d$wdir_baldy), wind_cells(d$wgust_baldy)
   )
   rows <- vapply(seq_len(nrow(d)), function(i) {
     cells <- paste(vapply(cols, `[`, "", i), collapse = "")
@@ -287,8 +291,8 @@ build_table <- function(df) {
     "<tr><th>H2O 9,664</th><th>Snow 12h</th>",
     "<th>8,550</th><th>10,500</th><th>11,068</th>",
     "<th>8,550</th><th>10,500</th><th>11,068</th>",
-    "<th>Avg</th><th>Gust</th><th>Dir</th><th>Avg</th><th>Gust</th><th>Dir</th>",
-    "<th>Avg</th><th>Gust</th><th>Dir</th></tr></thead>")
+    "<th>Avg</th><th>Dir</th><th>Gust</th><th>Avg</th><th>Dir</th><th>Gust</th>",
+    "<th>Avg</th><th>Dir</th><th>Gust</th></tr></thead>")
   paste0("<table class='wx'>", hdr, "<tbody>", paste(rows, collapse = ""), "</tbody></table>")
 }
 
@@ -322,7 +326,7 @@ build_report <- function(hist, plots, win) {
   )
   imgs <- paste0("<section class='plots'><div id='interactive'></div>",
                  "<noscript>", img_tag(plots[[1]], names(plots)[1]), "</noscript>",
-                 "<script>window.ROUNDUP_DATA=", chart_data(win), ";</script>",
+                 "<script>window.ROUNDUP_DATA=", chart_data(hist), ";window.ROUNDUP_DEFAULT_HOURS=", PLOT_HOURS, ";</script>",
                  "<script>", paste(readLines(file.path(script_dir, "chart.js"), encoding = "UTF-8"),
                                    collapse = "\n"), "</script></section>")
 
@@ -342,7 +346,12 @@ build_report <- function(hist, plots, win) {
   .wx td.dt{background:#f3f4f6;font-weight:600}.wx td.na{color:#bbb}
   .wx tr.day td{background:#e5e7eb;text-align:left;font-weight:700;padding:4px 8px}
   .deg{color:#6b7280;font-size:10px}
+  .vec{width:13px;height:13px;vertical-align:-2px;color:#374151}
   section.plots{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin-top:28px}
+  .rangebar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:10px;font-size:13px}
+  .rangebar input{font:inherit;padding:3px 6px;border:1px solid #9ca3af;border-radius:6px}
+  .rangebar button{font:inherit;padding:3px 10px;border:1px solid #9ca3af;border-radius:6px;background:#fff;cursor:pointer;margin-right:4px}
+  .rangebar button:hover{background:#f3f4f6}.rangebar .note{color:#6b7280;font-size:12px}
   #interactive{position:relative}
   svg.ichart{display:block;width:100%;height:auto;max-height:calc(100vh - 56px);touch-action:pan-y;font-family:inherit}
   .itip{display:none;position:absolute;pointer-events:none;background:rgba(255,255,255,.96);border:1px solid #9ca3af;border-radius:6px;padding:6px 9px;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:5}
