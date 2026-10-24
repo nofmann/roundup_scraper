@@ -343,8 +343,9 @@ build_report <- function(hist, plots, win) {
   table.wx{border-collapse:collapse;font-size:12px;width:100%;font-variant-numeric:tabular-nums}
   .wx th{background:#1f2937;color:#fff;padding:4px 6px;font-weight:600;border-left:1px solid #374151;position:sticky;top:0}
   .wx td{padding:3px 6px;text-align:center;border-bottom:1px solid #fff;border-left:1px solid #fff;white-space:nowrap}
-  .wx td.dt{background:#f3f4f6;font-weight:600}.wx td.na{color:#bbb}
-  .wx tr.day td{background:#e5e7eb;text-align:left;font-weight:700;padding:4px 8px}
+  .wx td.dt{background:#f3f4f6;font-weight:600;position:sticky;left:0;z-index:1;box-shadow:1px 0 0 #d1d5db}.wx td.na{color:#bbb}
+  .wx thead th:first-child{left:0;z-index:2}
+  .wx tr.day td{background:#e5e7eb;text-align:left;font-weight:700;padding:4px 8px;position:sticky;left:0}
   .deg{color:#6b7280;font-size:10px}
   .vec{width:13px;height:13px;vertical-align:-2px;color:#374151}
   section.plots{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin-top:28px}
