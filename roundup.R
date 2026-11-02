@@ -39,7 +39,7 @@ fetch_roundup <- function() {
 
 parse_roundup <- function(txt) {
   lines <- strsplit(txt, "\r?\n")[[1]]
-  lines <- lines[grepl("^\\s*\\d{2}/\\d{2}/\\d{4}\\s+\\d{2}:\\d{2}\\s", lines)]
+  lines <- lines[grepl("^\\s*\\d{1,2}/\\d{1,2}/\\d{4}\\s+\\d{1,2}:\\d{2}\\s", lines)]  # page doesn't zero-pad month/day
   f <- strsplit(trimws(lines), "\\s+")
   ok <- lengths(f) == length(COLS) + 2
   if (any(!ok)) warning(sum(!ok), " row(s) skipped: unexpected field count")
@@ -54,9 +54,16 @@ parse_roundup <- function(txt) {
   })
 
   day <- as.Date(m[, 1], "%m/%d/%Y")
-  hr  <- as.integer(substr(m[, 2], 1, 2))  # 24 rolls to 00:00 next day
-  dt  <- as.POSIXct(format(day), tz = TZ) + hr * 3600
-  bind_cols(tibble(datetime = dt), df)
+  hm  <- strsplit(m[, 2], ":", fixed = TRUE)
+  hr  <- as.integer(vapply(hm, `[`, "", 1))
+  mn  <- as.integer(vapply(hm, `[`, "", 2))
+  day <- day + (hr == 24)                  # 24:00 rolls to 00:00 next day
+  hr[hr == 24] <- 0L
+  # Parse as wall-clock time (not midnight + N hours) so DST change days stay correct
+  dt  <- as.POSIXct(sprintf("%s %02d:%02d:00", format(day), hr, mn), tz = TZ)
+  bad <- is.na(dt) | is.na(day)
+  if (any(bad)) warning(sum(bad), " row(s) skipped: unparseable timestamp")
+  bind_cols(tibble(datetime = dt), df)[!bad, ]
 }
 
 # ---- append to CSV --------------------------------------------------------
