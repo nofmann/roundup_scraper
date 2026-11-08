@@ -338,28 +338,34 @@ build_report <- function(hist, plots, win) {
                                    collapse = "\n"), "</script></section>")
 
   css <- "
-  body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#222;margin:0;background:#f7f8fa}
+  :root{--navy:#1C1370;--red:#D4121A;--bg:#f4f5fa;--line:#dcdeee;--muted:#5b5f7a}
+  body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#222;margin:0;background:var(--bg)}
+  a{color:var(--navy)}
+  header.top{background:var(--navy);color:#fff;border-bottom:4px solid var(--red)}
+  header.top .in{max-width:1280px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:14px}
+  header.top img{width:64px;height:64px;flex:none;filter:drop-shadow(0 1px 3px rgba(0,0,0,.35))}
+  header.top a{color:#fff}
   main{max-width:1280px;margin:0 auto;padding:20px 16px 40px}
-  h1{margin:0 0 2px;font-size:24px} .asof{color:#6b7280;margin-bottom:16px}
-  h2{font-size:16px;margin:28px 0 8px}
+  h1{margin:0 0 2px;font-size:24px;letter-spacing:.01em} .asof{color:#c9c7e6;font-size:13px}
+  h2{font-size:16px;margin:28px 0 8px;color:var(--navy);border-left:4px solid var(--red);padding-left:8px}
   .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
-  .tile{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px}
-  .lbl{font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em}
-  .val{font-size:26px;font-weight:650;margin:2px 0}.sub{font-size:12px;color:#6b7280}
-  .scroll{overflow-x:auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px}
+  .tile{background:#fff;border:1px solid var(--line);border-top:3px solid var(--navy);border-radius:8px;padding:10px 12px}
+  .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .val{font-size:26px;font-weight:650;margin:2px 0;color:var(--navy)}.sub{font-size:12px;color:var(--muted)}
+  .scroll{overflow-x:auto;background:#fff;border:1px solid var(--line);border-radius:8px}
   table.wx{border-collapse:collapse;font-size:12px;width:100%;font-variant-numeric:tabular-nums}
-  .wx th{background:#1f2937;color:#fff;padding:4px 6px;font-weight:600;border-left:1px solid #374151;position:sticky;top:0}
+  .wx th{background:var(--navy);color:#fff;padding:4px 6px;font-weight:600;border-left:1px solid #3a3190;position:sticky;top:0}
   .wx td{padding:3px 6px;text-align:center;border-bottom:1px solid #fff;border-left:1px solid #fff;white-space:nowrap}
-  .wx td.dt{background:#f3f4f6;font-weight:600;position:sticky;left:0;z-index:1;box-shadow:1px 0 0 #d1d5db}.wx td.na{color:#bbb}
+  .wx td.dt{background:#f1f2f9;font-weight:600;position:sticky;left:0;z-index:1;box-shadow:1px 0 0 var(--line)}.wx td.na{color:#bbb}
   .wx thead tr:first-child th:first-child{left:0;z-index:2}
-  .wx tr.day td{background:#e5e7eb;text-align:left;font-weight:700;padding:4px 8px;position:sticky;left:0}
-  .deg{color:#6b7280;font-size:10px}
+  .wx tr.day td{background:#e3e5f3;color:var(--navy);text-align:left;font-weight:700;padding:4px 8px;position:sticky;left:0}
+  .deg{color:var(--muted);font-size:10px}
   .vec{width:13px;height:13px;vertical-align:-2px;color:#374151}
-  section.plots{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin-top:28px}
+  section.plots{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin-top:28px}
   .rangebar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:10px;font-size:13px}
-  .rangebar input{font:inherit;padding:3px 6px;border:1px solid #9ca3af;border-radius:6px}
-  .rangebar button{font:inherit;padding:3px 10px;border:1px solid #9ca3af;border-radius:6px;background:#fff;cursor:pointer;margin-right:4px}
-  .rangebar button:hover{background:#f3f4f6}.rangebar .note{color:#6b7280;font-size:12px}
+  .rangebar input{font:inherit;padding:3px 6px;border:1px solid #9a9cc0;border-radius:6px}
+  .rangebar button{font:inherit;padding:3px 10px;border:1px solid var(--navy);color:var(--navy);border-radius:6px;background:#fff;cursor:pointer;margin-right:4px}
+  .rangebar button:hover{background:var(--navy);color:#fff}.rangebar .note{color:var(--muted);font-size:12px}
   #interactive{position:relative}
   svg.ichart{display:block;width:100%;height:auto;max-height:calc(100vh - 56px);touch-action:pan-y;font-family:inherit}
   .itip{display:none;position:absolute;pointer-events:none;background:rgba(255,255,255,.96);border:1px solid #9ca3af;border-radius:6px;padding:6px 9px;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:5}
@@ -372,14 +378,17 @@ build_report <- function(hist, plots, win) {
 
   html <- sprintf("<!doctype html><html lang='en'><head><meta charset='utf-8'>
 <meta name='viewport' content='width=device-width,initial-scale=1'>
-<title>Alta Hourly Wx Roundup</title><style>%s</style></head><body><main>
+<title>Alta Hourly Wx Roundup</title><style>%s</style></head><body>
+<header class='top'><div class='in'>%s<div>
 <h1>Alta Hourly Wx Roundup</h1>
 <div class='asof'>Latest observation: %s (hour ending) &middot; generated %s &middot; source: <a href='%s'>wxstns.net</a></div>
+</div></div></header><main>
 <div class='tiles'>%s</div>
 <h2>Last %d hours</h2><div class='scroll'>%s</div>
 %s
 </main></body></html>",
-    css, paste0(format(now$datetime - 1, "%a %b %d, ", tz = TZ), sub("^00:", "24:", format(now$datetime, "%H:%M %Z", tz = TZ))),
+    css, img_tag(file.path(script_dir, "assets", "alta_logo.png"), "Alta Ski Area"),
+    paste0(format(now$datetime - 1, "%a %b %d, ", tz = TZ), sub("^00:", "24:", format(now$datetime, "%H:%M %Z", tz = TZ))),
     format(Sys.time(), "%b %d %H:%M %Z", tz = TZ), URL, tiles,
     TABLE_HOURS, build_table(hist), imgs)
   path <- file.path(OUT_DIR, "roundup.html")
