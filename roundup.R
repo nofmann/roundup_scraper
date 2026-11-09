@@ -365,9 +365,15 @@ build_report <- function(hist, plots, win) {
   .rangebar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:10px;font-size:13px}
   .rangebar input{font:inherit;padding:3px 6px;border:1px solid #9a9cc0;border-radius:6px}
   .rangebar button{font:inherit;padding:3px 10px;border:1px solid var(--navy);color:var(--navy);border-radius:6px;background:#fff;cursor:pointer;margin-right:4px}
-  .rangebar button:hover{background:var(--navy);color:#fff}.rangebar .note{color:var(--muted);font-size:12px}
+  .rangebar button:hover,.rangebar button.on{background:var(--navy);color:#fff}.rangebar .note{color:var(--muted);font-size:12px}
+  .rangebar .layout{margin-left:4px}.rangebar .layout button{margin-right:0;border-radius:0}
+  .rangebar .layout button:first-of-type{border-radius:6px 0 0 6px}.rangebar .layout button:last-of-type{border-radius:0 6px 6px 0}
+  .rangebar #rclr{background:var(--red);border-color:var(--red);color:#fff}.rangebar #rclr:hover{background:#a50e14}
+  .rangebar #rjump{font-weight:600}
+  .scroll.tall{max-height:75vh;overflow:auto}
+  .wx thead tr:nth-child(2) th{top:24px}
   #interactive{position:relative}
-  svg.ichart{display:block;width:100%;height:auto;max-height:calc(100vh - 56px);touch-action:pan-y;font-family:inherit}
+  svg.ichart{display:block;width:100%;height:auto;max-height:calc(100vh - 56px);touch-action:pan-y;font-family:inherit;cursor:crosshair;user-select:none;-webkit-user-select:none}
   .itip{display:none;position:absolute;pointer-events:none;background:rgba(255,255,255,.96);border:1px solid #9ca3af;border-radius:6px;padding:6px 9px;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:5}
   .itip .tt{font-weight:700;margin-bottom:2px}.itip .tt span{font-weight:400;color:#6b7280}
   .itip table{border-collapse:collapse}.itip td{padding:0 0 0 10px;white-space:nowrap}.itip td:first-child{padding-left:0;color:#374151}
@@ -384,7 +390,7 @@ build_report <- function(hist, plots, win) {
 <div class='asof'>Latest observation: %s (hour ending) &middot; generated %s &middot; source: <a href='%s'>wxstns.net</a></div>
 </div></div></header><main>
 <div class='tiles'>%s</div>
-<h2>Last %d hours</h2><div class='scroll'>%s</div>
+<h2 id='tbl-title'>Last %d hours</h2><div class='scroll' id='tbl-wrap'>%s</div>
 %s
 </main></body></html>",
     css, img_tag(file.path(script_dir, "assets", "alta_logo.png"), "Alta Ski Area"),
